@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "$#" -lt 2 ]; then
+  echo "Usage: $0 <project-name> <python|typescript|rust> [destination]"
+  exit 1
+fi
+
+NAME="$1"
+STACK="$2"
+DEST_ROOT="${3:-$PWD}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TEMPLATE_DIR="$SCRIPT_DIR/templates/$STACK"
+DEST="$DEST_ROOT/$NAME"
+
+if [ ! -d "$TEMPLATE_DIR" ]; then
+  echo "Unknown stack: $STACK"
+  exit 1
+fi
+
+if [ -e "$DEST" ]; then
+  echo "Destination already exists: $DEST"
+  exit 1
+fi
+
+cp -R "$TEMPLATE_DIR" "$DEST"
+
+# token replacement
+find "$DEST" -type f -print0 | while IFS= read -r -d '' f; do
+  sed -i "s/__PROJECT_NAME__/$NAME/g" "$f"
+done
+
+# rename python package dir token if present
+if [ -d "$DEST/src/__PROJECT_NAME__" ]; then
+  mv "$DEST/src/__PROJECT_NAME__" "$DEST/src/$NAME"
+fi
+
+cd "$DEST"
+git init >/dev/null
+git add .
+git commit -m "Bootstrap $STACK project $NAME from template" >/dev/null || true
+
+echo "Created: $DEST"
