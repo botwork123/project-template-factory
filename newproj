@@ -35,9 +35,194 @@ if [ -d "$DEST/src/__PROJECT_NAME__" ]; then
   mv "$DEST/src/__PROJECT_NAME__" "$DEST/src/$NAME"
 fi
 
+# create canonical agent instructions file
+if [ ! -e "$DEST/AGENTS.md" ]; then
+  cat > "$DEST/AGENTS.md" <<'EOF'
+# AGENTS.md
+
+Project-level instructions for coding agents.
+
+- Follow `CODING_STANDARDS.md` when present.
+- Prefer small, test-backed changes.
+- Keep API changes explicit and documented.
+EOF
+fi
+
+# scaffold CI + release workflows by stack (GitHub Actions)
+mkdir -p "$DEST/.github/workflows"
+if [ "$STACK" = "python" ]; then
+  cat > "$DEST/.github/workflows/ci.yml" <<'EOF'
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: python -m pip install --upgrade pip
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: mypy src/__PROJECT_NAME__
+      - run: pytest --cov=src/__PROJECT_NAME__ --cov-fail-under=90
+EOF
+
+  cat > "$DEST/.github/workflows/release.yml" <<'EOF'
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: python -m pip install --upgrade pip build
+      - run: python -m build
+      - run: ls -la dist
+EOF
+fi
+
+if [ "$STACK" = "typescript" ]; then
+  cat > "$DEST/.github/workflows/ci.yml" <<'EOF'
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci
+      - run: npm run -s build
+      - run: npm test
+EOF
+
+  cat > "$DEST/.github/workflows/release.yml" <<'EOF'
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci
+      - run: npm pack
+EOF
+fi
+
+if [ "$STACK" = "rust" ]; then
+  cat > "$DEST/.github/workflows/ci.yml" <<'EOF'
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo fmt -- --check
+      - run: cargo clippy -- -D warnings
+      - run: cargo test --all
+EOF
+
+  cat > "$DEST/.github/workflows/release.yml" <<'EOF'
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release
+EOF
+fi
+
+# symlink common agent-specific instruction files to AGENTS.md
+for alias in CLAUDE.md CLUADE.md CURSOR.md CODEX.md GEMINI.md COPILOT.md; do
+  if [ ! -e "$DEST/$alias" ]; then
+    ln -s AGENTS.md "$DEST/$alias"
+  fi
+done
+
 cd "$DEST"
 git init >/dev/null
+
+# Local PR-first guardrails: block direct pushes from protected branches.
+mkdir -p .githooks
+cat > .githooks/pre-push <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Allow explicit emergency bypass when absolutely necessary.
+if [ "${ALLOW_PROTECTED_PUSH:-}" = "1" ]; then
+  exit 0
+fi
+
+protected_branches_regex='^(main|master|release)$'
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ -z "${local_ref:-}" ] && continue
+  branch="${local_ref#refs/heads/}"
+  if [[ "$branch" =~ $protected_branches_regex ]]; then
+    echo "❌ Push blocked: direct push to protected branch '$branch' is disabled locally."
+    echo "   Create a feature branch + PR instead."
+    echo "   Override once (emergency): ALLOW_PROTECTED_PUSH=1 git push ..."
+    exit 1
+  fi
+done
+
+exit 0
+EOF
+chmod +x .githooks/pre-push
+
+git config core.hooksPath .githooks
+
 git add .
 git commit -m "Bootstrap $STACK project $NAME from template" >/dev/null || true
 
 echo "Created: $DEST"
+echo "Local PR guard enabled: direct pushes to main/master/release are blocked by .githooks/pre-push"
