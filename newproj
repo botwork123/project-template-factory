@@ -221,8 +221,19 @@ chmod +x .githooks/pre-push
 
 git config core.hooksPath .githooks
 
+if [ "$STACK" = "python" ]; then
+  if command -v pre-commit >/dev/null 2>&1; then
+    pre-commit install
+  else
+    echo "⚠️  pre-commit not found; run 'pip install pre-commit && pre-commit install' in $DEST"
+  fi
+fi
+
 git add .
 git commit -m "Bootstrap $STACK project $NAME from template" >/dev/null || true
 
 echo "Created: $DEST"
 echo "Local PR guard enabled: direct pushes to main/master/release are blocked by .githooks/pre-push"
+if [ "$STACK" = "python" ]; then
+  echo "Python hooks: pre-commit install attempted automatically"
+fi
