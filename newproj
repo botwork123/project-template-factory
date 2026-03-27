@@ -51,6 +51,168 @@ fi
 # scaffold CI + release workflows by stack (GitHub Actions)
 mkdir -p "$DEST/.github/workflows"
 if [ "$STACK" = "python" ]; then
+  mkdir -p "$DEST/scripts"
+  cat > "$DEST/scripts/detect_import_cycles.py" <<'EOF'
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import ast
+from collections import defaultdict
+from pathlib import Path
+
+
+def build_graph(src_dir: Path, package: str) -> dict[str, set[str]]:
+    graph: dict[str, set[str]] = defaultdict(set)
+    modules: set[str] = set()
+
+    for py in src_dir.rglob("*.py"):
+        rel = py.relative_to(src_dir).with_suffix("")
+        mod = package + "." + ".".join(rel.parts)
+        modules.add(mod)
+
+    for py in src_dir.rglob("*.py"):
+        rel = py.relative_to(src_dir).with_suffix("")
+        mod = package + "." + ".".join(rel.parts)
+        tree = ast.parse(py.read_text(encoding="utf-8"))
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    tgt = alias.name
+                    if tgt in modules:
+                        graph[mod].add(tgt)
+            elif isinstance(node, ast.ImportFrom):
+                if node.level > 0:
+                    parts = mod.split(".")
+                    base = ".".join(parts[:-node.level])
+                    suffix = node.module or ""
+                    tgt = f"{base}.{suffix}".strip(".")
+                else:
+                    tgt = node.module or ""
+                if tgt in modules:
+                    graph[mod].add(tgt)
+
+    for m in modules:
+        graph.setdefault(m, set())
+    return graph
+
+
+def sccs(graph: dict[str, set[str]]) -> list[list[str]]:
+    index = 0
+    stack: list[str] = []
+    on_stack: set[str] = set()
+    indices: dict[str, int] = {}
+    lowlink: dict[str, int] = {}
+    comps: list[list[str]] = []
+
+    def strongconnect(v: str) -> None:
+        nonlocal index
+        indices[v] = index
+        lowlink[v] = index
+        index += 1
+        stack.append(v)
+        on_stack.add(v)
+
+        for w in graph[v]:
+            if w not in indices:
+                strongconnect(w)
+                lowlink[v] = min(lowlink[v], lowlink[w])
+            elif w in on_stack:
+                lowlink[v] = min(lowlink[v], indices[w])
+
+        if lowlink[v] == indices[v]:
+            comp: list[str] = []
+            while True:
+                w = stack.pop()
+                on_stack.remove(w)
+                comp.append(w)
+                if w == v:
+                    break
+            if len(comp) > 1:
+                comps.append(sorted(comp))
+
+    for node in sorted(graph):
+        if node not in indices:
+            strongconnect(node)
+
+    return sorted(comps, key=lambda c: (len(c), c), reverse=True)
+
+
+def load_baseline(path: Path) -> set[tuple[str, ...]]:
+    if not path.exists():
+        return set()
+    groups: list[list[str]] = []
+    current: list[str] = []
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line:
+            if current:
+                groups.append(sorted(current))
+                current = []
+            continue
+        current.append(line)
+    if current:
+        groups.append(sorted(current))
+    return {tuple(g) for g in groups}
+
+
+def write_baseline(path: Path, comps: list[list[str]]) -> None:
+    body = []
+    for comp in comps:
+        body.extend(comp)
+        body.append("")
+    path.write_text("\n".join(body).rstrip() + "\n", encoding="utf-8")
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--src", default="src/__PROJECT_NAME__")
+    ap.add_argument("--package", default="__PROJECT_NAME__")
+    ap.add_argument("--baseline", default="scripts/import_cycle_baseline.txt")
+    ap.add_argument("--fail-on", choices=["none", "any", "new"], default="new")
+    ap.add_argument("--write-baseline", action="store_true")
+    args = ap.parse_args()
+
+    comps = sccs(build_graph(Path(args.src), args.package))
+    baseline_path = Path(args.baseline)
+
+    print(f"cycles={len(comps)}")
+    for i, comp in enumerate(comps, 1):
+        print(f"[cycle {i}]")
+        for m in comp:
+            print(f"  {m}")
+
+    if args.write_baseline:
+        baseline_path.parent.mkdir(parents=True, exist_ok=True)
+        write_baseline(baseline_path, comps)
+        print(f"wrote baseline: {baseline_path}")
+        return 0
+
+    if args.fail_on == "none":
+        return 0
+    if args.fail_on == "any":
+        return 1 if comps else 0
+
+    baseline = load_baseline(baseline_path)
+    current = {tuple(c) for c in comps}
+    new = sorted(current - baseline)
+    if new:
+        print(f"new_cycles={len(new)}")
+        for comp in new:
+            print("  new:")
+            for m in comp:
+                print(f"    {m}")
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+EOF
+  chmod +x "$DEST/scripts/detect_import_cycles.py"
+  : > "$DEST/scripts/import_cycle_baseline.txt"
+
   cat > "$DEST/.github/workflows/ci.yml" <<'EOF'
 name: CI
 
@@ -73,6 +235,7 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
       - run: mypy src/__PROJECT_NAME__
+      - run: python scripts/detect_import_cycles.py --fail-on new --baseline scripts/import_cycle_baseline.txt
       - run: pytest --cov=src/__PROJECT_NAME__ --cov-fail-under=90
 EOF
 
@@ -222,11 +385,18 @@ chmod +x .githooks/pre-push
 git config core.hooksPath .githooks
 
 if [ "$STACK" = "python" ]; then
-  if command -v pre-commit >/dev/null 2>&1; then
-    pre-commit install
-  else
-    echo "⚠️  pre-commit not found; run 'pip install pre-commit && pre-commit install' in $DEST"
-  fi
+  cat > .githooks/pre-commit <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+if ! command -v pre-commit >/dev/null 2>&1; then
+  echo "⚠️  pre-commit not found; install with: pip install pre-commit"
+  exit 1
+fi
+
+pre-commit run --hook-stage pre-commit --all-files
+EOF
+  chmod +x .githooks/pre-commit
 fi
 
 git add .
@@ -235,5 +405,5 @@ git commit -m "Bootstrap $STACK project $NAME from template" >/dev/null || true
 echo "Created: $DEST"
 echo "Local PR guard enabled: direct pushes to main/master/release are blocked by .githooks/pre-push"
 if [ "$STACK" = "python" ]; then
-  echo "Python hooks: pre-commit install attempted automatically"
+  echo "Python hooks: .githooks/pre-commit runs pre-commit (requires local pre-commit binary)"
 fi
