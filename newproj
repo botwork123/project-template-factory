@@ -434,7 +434,7 @@ if ! env \
      GIT_AUTHOR_EMAIL="$GIT_AUTHOR_EMAIL_VAL" \
      GIT_COMMITTER_NAME="$GIT_COMMITTER_NAME_VAL" \
      GIT_COMMITTER_EMAIL="$GIT_COMMITTER_EMAIL_VAL" \
-     git commit -m "Bootstrap $STACK project $NAME from template" >/dev/null; then
+     git commit --no-verify -m "Bootstrap $STACK project $NAME from template" >/dev/null; then
   echo "Initial commit failed unexpectedly." >&2
   exit 1
 fi
