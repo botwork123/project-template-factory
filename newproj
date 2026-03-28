@@ -9,6 +9,22 @@ fi
 NAME="$1"
 STACK="$2"
 DEST_ROOT="${3:-$PWD}"
+
+# stack-specific project-name validation
+if [ "$STACK" = "python" ]; then
+  if [[ ! "$NAME" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+    echo "Invalid python project name: $NAME" >&2
+    echo "Python names must match ^[A-Za-z_][A-Za-z0-9_]*$" >&2
+    exit 1
+  fi
+elif [ "$STACK" = "typescript" ] || [ "$STACK" = "rust" ]; then
+  if [[ ! "$NAME" =~ ^[A-Za-z][A-Za-z0-9_-]*$ ]]; then
+    echo "Invalid project name for $STACK: $NAME" >&2
+    echo "Use letters, digits, '-' or '_' and start with a letter." >&2
+    exit 1
+  fi
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEMPLATE_DIR="$SCRIPT_DIR/templates/$STACK"
 DEST="$DEST_ROOT/$NAME"
@@ -25,9 +41,16 @@ fi
 
 cp -R "$TEMPLATE_DIR" "$DEST"
 
-# token replacement
+# token replacement (safe, portable)
 find "$DEST" -type f -print0 | while IFS= read -r -d '' f; do
-  sed -i "s/__PROJECT_NAME__/$NAME/g" "$f"
+  python3 - "$f" "$NAME" <<'__PYTOK__'
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+name = sys.argv[2]
+path.write_text(path.read_text(encoding="utf-8").replace("__PROJECT_NAME__", name), encoding="utf-8")
+__PYTOK__
 done
 
 # rename python package dir token if present
@@ -346,7 +369,7 @@ EOF
 fi
 
 # symlink common agent-specific instruction files to AGENTS.md
-for alias in CLAUDE.md CLUADE.md CURSOR.md CODEX.md GEMINI.md COPILOT.md; do
+for alias in CLAUDE.md CURSOR.md CODEX.md GEMINI.md COPILOT.md; do
   if [ ! -e "$DEST/$alias" ]; then
     ln -s AGENTS.md "$DEST/$alias"
   fi
@@ -401,7 +424,10 @@ EOF
 fi
 
 git add .
-git commit -m "Bootstrap $STACK project $NAME from template" >/dev/null || true
+if ! git commit -m "Bootstrap $STACK project $NAME from template" >/dev/null; then
+  echo "Initial commit failed. Configure git user.name/user.email and retry." >&2
+  exit 1
+fi
 
 echo "Created: $DEST"
 echo "Local PR guard enabled: direct pushes to main/master/release are blocked by .githooks/pre-push"
