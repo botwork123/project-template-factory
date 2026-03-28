@@ -108,7 +108,7 @@ def build_graph(src_dir: Path, package: str) -> dict[str, set[str]]:
             elif isinstance(node, ast.ImportFrom):
                 if node.level > 0:
                     parts = mod.split(".")
-                    base = ".".join(parts[:-node.level])
+                    base = ".".join(parts[: -node.level])
                     suffix = node.module or ""
                     tgt = f"{base}.{suffix}".strip(".")
                 else:
