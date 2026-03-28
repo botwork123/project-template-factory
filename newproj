@@ -378,14 +378,6 @@ done
 cd "$DEST"
 git init >/dev/null
 
-# Ensure initial scaffold commit works even when global git identity is absent (CI/tmp envs).
-if ! git config user.name >/dev/null 2>&1; then
-  git config user.name "template-bootstrap"
-fi
-if ! git config user.email >/dev/null 2>&1; then
-  git config user.email "template-bootstrap@example.com"
-fi
-
 # Local PR-first guardrails: block direct pushes from protected branches.
 mkdir -p .githooks
 cat > .githooks/pre-push <<'EOF'
@@ -432,8 +424,12 @@ EOF
 fi
 
 git add .
-if ! git commit -m "Bootstrap $STACK project $NAME from template" >/dev/null; then
-  echo "Initial commit failed. Configure git user.name/user.email and retry." >&2
+if ! GIT_AUTHOR_NAME="${GIT_AUTHOR_NAME:-template-bootstrap}" \
+     GIT_AUTHOR_EMAIL="${GIT_AUTHOR_EMAIL:-template-bootstrap@example.com}" \
+     GIT_COMMITTER_NAME="${GIT_COMMITTER_NAME:-${GIT_AUTHOR_NAME:-template-bootstrap}}" \
+     GIT_COMMITTER_EMAIL="${GIT_COMMITTER_EMAIL:-${GIT_AUTHOR_EMAIL:-template-bootstrap@example.com}}" \
+     git commit -m "Bootstrap $STACK project $NAME from template" >/dev/null; then
+  echo "Initial commit failed unexpectedly." >&2
   exit 1
 fi
 
