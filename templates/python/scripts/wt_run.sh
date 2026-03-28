@@ -55,9 +55,9 @@ if pathlib.Path(sys.prefix).resolve() != expected_venv_dir:
     print("[wt_run] Run: ./scripts/wt_bootstrap.sh", file=sys.stderr)
     raise SystemExit(1)
 
-spec = importlib.util.find_spec("dag_core")
+spec = importlib.util.find_spec("__PROJECT_NAME__")
 if spec is None:
-    print("[wt_run] Unable to resolve dag_core import", file=sys.stderr)
+    print("[wt_run] Unable to resolve __PROJECT_NAME__ import", file=sys.stderr)
     raise SystemExit(1)
 
 origin_path: pathlib.Path | None = None
@@ -67,12 +67,12 @@ elif spec.submodule_search_locations:
     origin_path = pathlib.Path(next(iter(spec.submodule_search_locations))).resolve() / "__init__.py"
 
 if origin_path is None:
-    print("[wt_run] Could not determine dag_core origin path", file=sys.stderr)
+    print("[wt_run] Could not determine __PROJECT_NAME__ origin path", file=sys.stderr)
     raise SystemExit(1)
 
 if not str(origin_path).startswith(str(repo_root) + "/"):
-    print("[wt_run] dag_core import is outside this worktree", file=sys.stderr)
-    print(f"[wt_run] dag_core.__file__: {origin_path}", file=sys.stderr)
+    print("[wt_run] __PROJECT_NAME__ import is outside this worktree", file=sys.stderr)
+    print(f"[wt_run] __PROJECT_NAME__.__file__: {origin_path}", file=sys.stderr)
     print(f"[wt_run] worktree root: {repo_root}", file=sys.stderr)
     raise SystemExit(1)
 PY
