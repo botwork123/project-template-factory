@@ -37,10 +37,16 @@ def test_python_generated_ci_has_required_lanes(tmp_path: Path) -> None:
     result = subprocess.run(cmd, cwd=root, text=True, capture_output=True, check=False)
     assert result.returncode == 0, result.stderr
     ci = (project / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    for lane in ["lint:", "mypy:", "imports:", "test:", "report:", "protection_gate:"]:
+        assert lane in ci
+
     assert "./scripts/wt_bootstrap.sh" in ci
+    assert "./scripts/wt_run.sh ruff check ." in ci
     assert "./scripts/wt_run.sh mypy src/parity_py" in ci
     assert "./scripts/wt_run.sh pytest --cov=src/parity_py --cov-fail-under=90" in ci
     assert "detect_import_cycles.py --fail-on new" in ci
+    assert "needs: [lint, mypy, imports, test, report]" in ci
 
 
 def test_typescript_template_retains_build_and_test_scripts() -> None:
