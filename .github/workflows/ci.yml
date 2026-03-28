@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Shell lint
+        run: |
+          shellcheck newproj
+          shellcheck templates/python/scripts/wt_bootstrap.sh
+          shellcheck templates/python/scripts/wt_run.sh
+
+  template-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/0.7.9/install.sh | sh
+      - name: Add uv to PATH
+        run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Run parity tests
+        run: uv run --with pytest pytest -q tests/test_python_template_parity.py
+
+  generator-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/0.7.9/install.sh | sh
+      - name: Add uv to PATH
+        run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Run generator smoke
+        run: uv run --with pytest pytest -q tests/test_newproj_smoke.py
