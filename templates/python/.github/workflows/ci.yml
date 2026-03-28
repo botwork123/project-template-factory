@@ -1,5 +1,4 @@
 name: CI
-
 on:
   push:
     branches: [main, master]
@@ -7,78 +6,162 @@ on:
 
 jobs:
   lint:
+    name: ci / lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v4.1.7
+      - uses: actions/setup-python@v5.1.1
         with:
           python-version: "3.10"
-      - run: curl -LsSf https://astral.sh/uv/0.7.9/install.sh | sh
+      - run: curl -LsSf https://astral.sh/uv/install.sh | sh
       - run: echo "$HOME/.local/bin" >> $GITHUB_PATH
       - run: ./scripts/wt_bootstrap.sh
-      - run: ./scripts/wt_run.sh ruff check .
-      - run: ./scripts/wt_run.sh ruff format --check .
-
-  mypy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-      - run: curl -LsSf https://astral.sh/uv/0.7.9/install.sh | sh
-      - run: echo "$HOME/.local/bin" >> $GITHUB_PATH
-      - run: ./scripts/wt_bootstrap.sh
-      - run: ./scripts/wt_run.sh mypy src/__PROJECT_NAME__
-
-  imports:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-      - run: curl -LsSf https://astral.sh/uv/0.7.9/install.sh | sh
-      - run: echo "$HOME/.local/bin" >> $GITHUB_PATH
-      - run: ./scripts/wt_bootstrap.sh
-      - run: ./scripts/wt_run.sh python scripts/detect_import_cycles.py --fail-on new --baseline scripts/import_cycle_baseline.txt
-
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-      - run: curl -LsSf https://astral.sh/uv/0.7.9/install.sh | sh
-      - run: echo "$HOME/.local/bin" >> $GITHUB_PATH
-      - run: ./scripts/wt_bootstrap.sh
-      - run: ./scripts/wt_run.sh pytest --cov=src/__PROJECT_NAME__ --cov-fail-under=90
-
-  report:
-    if: always()
-    needs: [lint, mypy, imports, test]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Report lane results
-        run: |
-          echo "lint=${{ needs.lint.result }}"
-          echo "mypy=${{ needs.mypy.result }}"
-          echo "imports=${{ needs.imports.result }}"
-          echo "test=${{ needs.test.result }}"
-
-  protection_gate:
-    if: always()
-    needs: [lint, mypy, imports, test, report]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Fail if required lane failed
+      - name: Run linters (all files)
         run: |
           set -euo pipefail
-          results="${{ needs.lint.result }} ${{ needs.mypy.result }} ${{ needs.imports.result }} ${{ needs.test.result }}"
-          for r in $results; do
-            if [ "$r" != "success" ]; then
-              echo "required lane failed: $results"
-              exit 1
-            fi
+          HOOKS=(trailing-whitespace end-of-file-fixer check-yaml check-merge-conflict ruff ruff-format)
+          for hook in "${HOOKS[@]}"; do
+            ./scripts/wt_run.sh pre-commit run "$hook" --all-files
           done
+
+  imports:
+    name: ci / imports
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.1.7
+      - uses: actions/setup-python@v5.1.1
+        with:
+          python-version: "3.10"
+      - run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - run: ./scripts/wt_bootstrap.sh
+      - name: Run import checks (all files)
+        run: |
+          set -euo pipefail
+          HOOKS=(typing-imports semgrep-import-policy semgrep-guardrails semgrep-python-ethos)
+          for hook in "${HOOKS[@]}"; do
+            ./scripts/wt_run.sh pre-commit run "$hook" --all-files
+          done
+
+  semgrep_external_audit:
+    if: github.event_name == 'push'
+    name: ci / semgrep_external_audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.1.7
+      - uses: actions/setup-python@v5.1.1
+        with:
+          python-version: "3.10"
+      - run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - run: ./scripts/wt_bootstrap.sh
+      - name: Run external packs (blocking on findings)
+        run: |
+          mkdir -p artifacts
+          ./scripts/wt_run.sh semgrep --config p/ci --json --output artifacts/semgrep-p-ci.json src tests || true
+          ./scripts/wt_run.sh semgrep --config p/python --json --output artifacts/semgrep-p-python.json src tests || true
+          ./scripts/wt_run.sh semgrep --config p/trailofbits --json --output artifacts/semgrep-p-trailofbits.json src tests || true
+          for report in artifacts/semgrep-p-ci.json artifacts/semgrep-p-python.json artifacts/semgrep-p-trailofbits.json; do
+            findings=$(python3 -c 'import json,sys;print(len(json.load(open(sys.argv[1])).get("results",[])))' "$report")
+            echo "$report findings=$findings"
+            test "$findings" -eq 0
+          done
+      - uses: actions/upload-artifact@v3.1.3
+        if: always()
+        with:
+          name: semgrep-external-audit
+          if-no-files-found: ignore
+          path: |
+            artifacts/semgrep-p-ci.json
+            artifacts/semgrep-p-python.json
+            artifacts/semgrep-p-trailofbits.json
+
+  mypy:
+    name: ci / mypy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.1.7
+      - uses: actions/setup-python@v5.1.1
+        with:
+          python-version: "3.10"
+      - run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - run: ./scripts/wt_bootstrap.sh
+      - name: Run mypy
+        run: |
+          set -o pipefail
+          mkdir -p artifacts
+          ./scripts/wt_run.sh mypy src/__PROJECT_NAME__ 2>&1 | tee artifacts/mypy.txt
+      - uses: actions/upload-artifact@v3.1.3
+        with:
+          name: mypy-report
+          path: artifacts/mypy.txt
+
+  test:
+    name: ci / test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.1.7
+      - uses: actions/setup-python@v5.1.1
+        with:
+          python-version: "3.10"
+      - run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - run: ./scripts/wt_bootstrap.sh
+      - name: Run tests + coverage
+        run: |
+          set -o pipefail
+          mkdir -p artifacts
+          ./scripts/wt_run.sh pytest --cov=src/__PROJECT_NAME__ --cov-report=xml:artifacts/coverage.xml --cov-fail-under=90 \
+            2>&1 | tee artifacts/pytest.txt
+      - uses: actions/upload-artifact@v3.1.3
+        with:
+          name: test-report
+          path: artifacts/pytest.txt
+      - uses: actions/upload-artifact@v3.1.3
+        with:
+          name: coverage-report
+          path: artifacts/coverage.xml
+
+  cycles:
+    name: ci / cycles
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.1.7
+      - uses: actions/setup-python@v5.1.1
+        with:
+          python-version: "3.10"
+      - name: Detect import cycles
+        run: |
+          set -o pipefail
+          mkdir -p artifacts
+          python3 scripts/detect_import_cycles.py --fail-on new | tee artifacts/import-cycle-report.txt
+      - uses: actions/upload-artifact@v3.1.3
+        with:
+          name: cycle-report
+          if-no-files-found: ignore
+          path: artifacts/import-cycle-report.txt
+
+  report:
+    name: ci / report
+    runs-on: ubuntu-latest
+    needs: [lint, imports, mypy, test, cycles]
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Publish CI summary
+        run: |
+          echo "Python template CI lanes complete." >> "$GITHUB_STEP_SUMMARY"
+
+  protection_gate:
+    name: ci / protection_gate
+    runs-on: ubuntu-latest
+    needs: [lint, imports, mypy, test, cycles, report]
+    if: always()
+    steps:
+      - name: Enforce required jobs
+        run: |
+          set -euo pipefail
+          NEEDS='${{ toJson(needs) }}'
+          echo "$NEEDS"
+          echo "$NEEDS" | grep -q '"result":"failure"' && exit 1 || true
+          echo "$NEEDS" | grep -q '"result":"cancelled"' && exit 1 || true

@@ -1,0 +1,18 @@
+rules:
+  - id: project-template.ethos.no-hasattr
+    languages: [python]
+    severity: ERROR
+    message: "Avoid hasattr(...); prefer explicit contracts and fail loudly."
+    paths:
+      include:
+        - src/**/*.py
+    pattern: hasattr($OBJ, $ATTR)
+
+  - id: project-template.ethos.no-getattr-default
+    languages: [python]
+    severity: ERROR
+    message: "Avoid getattr(..., default); prefer explicit interfaces."
+    paths:
+      include:
+        - src/**/*.py
+    pattern: getattr($OBJ, $ATTR, $DEFAULT)

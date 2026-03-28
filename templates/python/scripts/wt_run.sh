@@ -57,22 +57,23 @@ if pathlib.Path(sys.prefix).resolve() != expected_venv_dir:
 
 spec = importlib.util.find_spec("__PROJECT_NAME__")
 if spec is None:
-    print("[wt_run] Unable to resolve __PROJECT_NAME__ import", file=sys.stderr)
+    print("[wt_run] Unable to resolve package import", file=sys.stderr)
     raise SystemExit(1)
 
 origin_path: pathlib.Path | None = None
 if spec.origin and spec.origin not in {"built-in", "frozen"}:
     origin_path = pathlib.Path(spec.origin).resolve()
 elif spec.submodule_search_locations:
-    origin_path = pathlib.Path(next(iter(spec.submodule_search_locations))).resolve() / "__init__.py"
+    pkg_root = pathlib.Path(next(iter(spec.submodule_search_locations))).resolve()
+    origin_path = pkg_root / "__init__.py"
 
 if origin_path is None:
-    print("[wt_run] Could not determine __PROJECT_NAME__ origin path", file=sys.stderr)
+    print("[wt_run] Could not determine package origin path", file=sys.stderr)
     raise SystemExit(1)
 
 if not str(origin_path).startswith(str(repo_root) + "/"):
-    print("[wt_run] __PROJECT_NAME__ import is outside this worktree", file=sys.stderr)
-    print(f"[wt_run] __PROJECT_NAME__.__file__: {origin_path}", file=sys.stderr)
+    print("[wt_run] Package import is outside this worktree", file=sys.stderr)
+    print(f"[wt_run] package.__file__: {origin_path}", file=sys.stderr)
     print(f"[wt_run] worktree root: {repo_root}", file=sys.stderr)
     raise SystemExit(1)
 PY

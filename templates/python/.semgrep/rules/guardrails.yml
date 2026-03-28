@@ -1,0 +1,16 @@
+rules:
+  - id: project-template.no-broad-except
+    languages: [python]
+    severity: ERROR
+    message: "Avoid broad exception handlers; catch explicit exception types."
+    pattern-either:
+      - pattern: |
+          try:
+            ...
+          except Exception:
+            ...
+      - pattern: |
+          try:
+            ...
+          except:
+            ...
