@@ -38,8 +38,8 @@ def test_python_generated_ci_has_required_lanes(tmp_path: Path) -> None:
     assert result.returncode == 0, result.stderr
     ci = (project / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     assert "./scripts/wt_bootstrap.sh" in ci
-    assert "./scripts/wt_run.sh mypy src/__PROJECT_NAME__" in ci
-    assert "./scripts/wt_run.sh pytest --cov=src/__PROJECT_NAME__ --cov-fail-under=90" in ci
+    assert "./scripts/wt_run.sh mypy src/parity_py" in ci
+    assert "./scripts/wt_run.sh pytest --cov=src/parity_py --cov-fail-under=90" in ci
     assert "detect_import_cycles.py --fail-on new" in ci
 
 

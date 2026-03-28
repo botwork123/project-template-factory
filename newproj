@@ -41,18 +41,6 @@ fi
 
 cp -R "$TEMPLATE_DIR" "$DEST"
 
-# token replacement (safe, portable)
-find "$DEST" -type f -print0 | while IFS= read -r -d '' f; do
-  python3 - "$f" "$NAME" <<'__PYTOK__'
-import pathlib
-import sys
-
-path = pathlib.Path(sys.argv[1])
-name = sys.argv[2]
-path.write_text(path.read_text(encoding="utf-8").replace("__PROJECT_NAME__", name), encoding="utf-8")
-__PYTOK__
-done
-
 # rename python package dir token if present
 if [ -d "$DEST/src/__PROJECT_NAME__" ]; then
   mv "$DEST/src/__PROJECT_NAME__" "$DEST/src/$NAME"
@@ -373,6 +361,18 @@ for alias in CLAUDE.md CURSOR.md CODEX.md GEMINI.md COPILOT.md; do
   if [ ! -e "$DEST/$alias" ]; then
     ln -s AGENTS.md "$DEST/$alias"
   fi
+done
+
+# token replacement (safe, portable) -- run after all scaffold files are created.
+find "$DEST" -type f -print0 | while IFS= read -r -d '' f; do
+  python3 - "$f" "$NAME" <<'__PYTOK__'
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+name = sys.argv[2]
+path.write_text(path.read_text(encoding="utf-8").replace("__PROJECT_NAME__", name), encoding="utf-8")
+__PYTOK__
 done
 
 cd "$DEST"

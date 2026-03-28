@@ -25,7 +25,13 @@ def _clean_template_caches(root: Path) -> None:
 def _generate(tmp_path: Path, name: str, stack: str) -> Path:
     root = _repo_root()
     _clean_template_caches(root)
-    result = _run(["./newproj", name, stack, str(tmp_path)], cwd=root)
+    env = dict(os.environ)
+    # Ensure initial scaffold commit works in CI where global git identity may be absent.
+    env.setdefault("GIT_AUTHOR_NAME", "template-ci")
+    env.setdefault("GIT_AUTHOR_EMAIL", "template-ci@example.com")
+    env.setdefault("GIT_COMMITTER_NAME", env["GIT_AUTHOR_NAME"])
+    env.setdefault("GIT_COMMITTER_EMAIL", env["GIT_AUTHOR_EMAIL"])
+    result = _run(["./newproj", name, stack, str(tmp_path)], cwd=root, env=env)
     assert result.returncode == 0, result.stderr
     project = tmp_path / name
     assert project.exists(), f"missing generated project: {project}"
