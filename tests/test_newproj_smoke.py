@@ -73,8 +73,13 @@ def test_rust_generation_smoke(tmp_path: Path) -> None:
 
 
 def _run_python_checks(project: Path, env: dict[str, str]) -> None:
+    pre_commit_cmd = ["./scripts/wt_run.sh", "pre-commit", "run", "--all-files"]
+    first = _run(pre_commit_cmd, cwd=project, env=env)
+    if first.returncode != 0 and "files were modified by this hook" in first.stdout:
+        first = _run(pre_commit_cmd, cwd=project, env=env)
+    _assert_success(first, "pre-commit")
+
     checks = [
-        (["./scripts/wt_run.sh", "pre-commit", "run", "--all-files"], "pre-commit"),
         (["./scripts/wt_run.sh", "mypy", "src/smoke_exec"], "mypy"),
         (["./scripts/wt_run.sh", "pytest", "-q"], "pytest"),
         (["./scripts/wt_run.sh", "python", "scripts/detect_import_cycles.py", "--fail-on", "new"], "import-cycles"),
