@@ -1,0 +1,8 @@
+rules:
+  - id: project-template.no-relative-imports
+    languages: [python]
+    severity: ERROR
+    message: "Avoid relative imports. Use absolute imports from your package root."
+    pattern-either:
+      - pattern-regex: '(?m)^\s*from\s+\.+[^\n]*\s+import\s+'
+      - pattern-regex: '(?m)^\s*import\s+\.+[^\n]*$'
