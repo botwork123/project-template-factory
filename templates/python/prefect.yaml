@@ -1,0 +1,13 @@
+name: __PROJECT_NAME__
+prefect-version: 3
+
+deployments:
+  - name: app
+    version: "${IMAGE_TAG}"
+    tags: ["docker", "image"]
+    work_pool:
+      name: "${PREFECT_WORK_POOL:-default-agent-pool}"
+      work_queue_name: "${PREFECT_WORK_QUEUE:-default}"
+      job_variables:
+        image: "${IMAGE_NAME:-registry/__PROJECT_NAME__}:${IMAGE_TAG}"
+    entrypoint: "src/__PROJECT_NAME__/main.py:main"

@@ -108,11 +108,15 @@ jobs:
       - run: curl -LsSf https://astral.sh/uv/install.sh | sh
       - run: echo "$HOME/.local/bin" >> $GITHUB_PATH
       - run: ./scripts/wt_bootstrap.sh
+      - name: Assert generated .env.example has no drift
+        run: |
+          ./scripts/wt_run.sh python scripts/generate_env_example.py
+          git diff --exit-code -- .env.example
       - name: Run tests + coverage
         run: |
           set -o pipefail
           mkdir -p artifacts
-          ./scripts/wt_run.sh pytest --cov=src/__PROJECT_NAME__ --cov-report=xml:artifacts/coverage.xml --cov-fail-under=90 \
+          ./scripts/wt_run.sh pytest --cov=__PROJECT_NAME__ --cov-report=xml:artifacts/coverage.xml --cov-fail-under=90 \
             2>&1 | tee artifacts/pytest.txt
       - uses: actions/upload-artifact@v3.1.3
         with:
@@ -142,10 +146,28 @@ jobs:
           if-no-files-found: ignore
           path: artifacts/import-cycle-report.txt
 
+  docker_smoke:
+    name: ci / docker_smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.1.7
+      - name: Build runtime image
+        run: docker build -t __PROJECT_NAME__:ci .
+
+  prefect_scaffold:
+    name: ci / prefect_scaffold
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.1.7
+      - name: Validate Prefect scaffold wiring
+        run: |
+          grep -q 'entrypoint: "src/__PROJECT_NAME__/main.py:main"' prefect.yaml
+          grep -q 'python", "-m", "__PROJECT_NAME__.main"' Dockerfile
+
   report:
     name: ci / report
     runs-on: ubuntu-latest
-    needs: [lint, imports, mypy, test, cycles]
+    needs: [lint, imports, mypy, test, cycles, docker_smoke, prefect_scaffold]
     if: github.event_name == 'pull_request'
     steps:
       - name: Publish CI summary
@@ -155,7 +177,7 @@ jobs:
   protection_gate:
     name: ci / protection_gate
     runs-on: ubuntu-latest
-    needs: [lint, imports, mypy, test, cycles, report]
+    needs: [lint, imports, mypy, test, cycles, docker_smoke, prefect_scaffold, report]
     if: always()
     steps:
       - name: Enforce required jobs

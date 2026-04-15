@@ -183,6 +183,12 @@ fi
 pre-commit run --hook-stage pre-commit --all-files
 EOF
   chmod +x .githooks/pre-commit
+
+  if command -v python3 >/dev/null 2>&1; then
+    python3 scripts/generate_env_example.py >/dev/null
+  else
+    echo "⚠️  python3 not found; skipping initial .env.example generation"
+  fi
 fi
 
 git add .

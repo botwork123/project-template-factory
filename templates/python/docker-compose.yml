@@ -1,0 +1,7 @@
+services:
+  app:
+    build: .
+    image: __PROJECT_NAME__:local
+    env_file:
+      - .env.example
+    command: ["python", "-m", "__PROJECT_NAME__.main"]
