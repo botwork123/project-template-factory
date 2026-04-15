@@ -10,6 +10,11 @@ if [[ $# -lt 1 ]]; then
   exit 1
 fi
 
+if ! command -v python3 >/dev/null 2>&1 && ! command -v python >/dev/null 2>&1; then
+  echo "python runtime not found in PATH. Install Python 3 to run deploys."
+  exit 1
+fi
+
 if ! command -v prefect >/dev/null 2>&1; then
   echo "prefect CLI not found. Install it to run deploys."
   exit 1
