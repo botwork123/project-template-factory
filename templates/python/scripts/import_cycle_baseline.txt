@@ -1,0 +1,3 @@
+__PROJECT_NAME__.__main__
+__PROJECT_NAME__.main
+__PROJECT_NAME__.settings
