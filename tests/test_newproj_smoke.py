@@ -26,6 +26,7 @@ def _generate(tmp_path: Path, name: str, stack: str) -> Path:
     root = _repo_root()
     _clean_template_caches(root)
     env = dict(os.environ)
+    env.setdefault("XDG_CACHE_HOME", str(tmp_path / ".cache"))
     # Ensure initial scaffold commit works in CI where global git identity may be absent.
     env.setdefault("GIT_AUTHOR_NAME", "template-ci")
     env.setdefault("GIT_AUTHOR_EMAIL", "template-ci@example.com")
@@ -50,11 +51,28 @@ def test_python_generation_smoke(tmp_path: Path) -> None:
         "scripts/wt_run.sh",
         "scripts/detect_import_cycles.py",
         "scripts/import_cycle_baseline.txt",
+        "scripts/generate_env_example.py",
+        "scripts/prefect/deploy.sh",
         ".github/workflows/ci.yml",
         "requirements/ci-constraints.txt",
+        "Dockerfile",
+        ".dockerignore",
+        "docker-compose.yml",
+        "prefect.yaml",
+        "docs/deployment.md",
+        ".env.example",
     ]
     for rel in required:
         assert (project / rel).exists(), f"missing expected file: {rel}"
+
+
+def test_python_env_example_generation_is_deterministic(tmp_path: Path) -> None:
+    project = _generate(tmp_path, "smoke_py_env", "python")
+    before = (project / ".env.example").read_text(encoding="utf-8")
+    result = _run(["python3", "scripts/generate_env_example.py"], cwd=project)
+    _assert_success(result, "generate_env_example")
+    after = (project / ".env.example").read_text(encoding="utf-8")
+    assert before == after
 
 
 def test_typescript_generation_smoke(tmp_path: Path) -> None:
@@ -93,6 +111,7 @@ def test_generated_python_executable_smoke(tmp_path: Path) -> None:
     project = _generate(tmp_path, "smoke_exec", "python")
     env = dict(os.environ)
     env["CI"] = "1"
+    env.setdefault("XDG_CACHE_HOME", str(tmp_path / ".cache"))
     bootstrap = _run(["./scripts/wt_bootstrap.sh"], cwd=project, env=env)
     _assert_success(bootstrap, "wt_bootstrap")
     _run_python_checks(project, env)

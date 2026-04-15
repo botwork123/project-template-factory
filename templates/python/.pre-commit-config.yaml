@@ -42,6 +42,6 @@ repos:
         pass_filenames: false
       - id: pytest
         name: pytest
-        entry: pytest --cov=src/__PROJECT_NAME__ --cov-fail-under=90
+        entry: pytest --cov=__PROJECT_NAME__ --cov-fail-under=90
         language: system
         pass_filenames: false

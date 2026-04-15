@@ -17,7 +17,16 @@ def test_python_template_ci_lanes_and_scripts(tmp_path: Path) -> None:
 
     project = dest_root / "demo_pkg"
     ci = (project / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-    for lane in ["ci / lint", "ci / imports", "ci / mypy", "ci / test", "ci / cycles", "ci / report"]:
+    for lane in [
+        "ci / lint",
+        "ci / imports",
+        "ci / mypy",
+        "ci / test",
+        "ci / cycles",
+        "ci / docker_smoke",
+        "ci / prefect_scaffold",
+        "ci / report",
+    ]:
         assert lane in ci
 
     precommit = (project / ".pre-commit-config.yaml").read_text(encoding="utf-8")
@@ -26,5 +35,15 @@ def test_python_template_ci_lanes_and_scripts(tmp_path: Path) -> None:
 
     assert (project / "scripts/detect_import_cycles.py").exists()
     assert (project / "scripts/import_cycle_baseline.txt").exists()
+    assert (project / "scripts/generate_env_example.py").exists()
+    assert (project / "scripts/prefect/deploy.sh").exists()
+
     run_script = (project / "scripts/wt_run.sh").read_text(encoding="utf-8")
     assert "find_spec(\"demo_pkg\")" in run_script
+
+    dockerfile = (project / "Dockerfile").read_text(encoding="utf-8")
+    prefect_yaml = (project / "prefect.yaml").read_text(encoding="utf-8")
+    compose = (project / "docker-compose.yml").read_text(encoding="utf-8")
+    assert "python\", \"-m\", \"demo_pkg.main\"" in dockerfile
+    assert "command: [\"python\", \"-m\", \"demo_pkg.main\"]" in compose
+    assert 'entrypoint: "src/demo_pkg/main.py:main"' in prefect_yaml
