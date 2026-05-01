@@ -5,6 +5,44 @@ on:
   pull_request:
 
 jobs:
+  notify_start:
+    name: ci / notify_start
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Notify bot start (CI_not)
+        env:
+          # Preferred notifier wiring (aligned with openob/skeleton)
+          CI_not_TOKEN: ${{ vars.CI_not_TOKEN }}
+          CI_not_CHAT_ID: ${{ vars.CI_not_CHAT_ID }}
+          # Backward compatibility fallbacks
+          CI_NOTIFIER_TOKEN: ${{ secrets.CI_NOTIFIER_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          case "$PR_AUTHOR" in
+            forgejo-claude|botwork123) MENTION="@Claude" ;;
+            forgejo-gpt)               MENTION="@GPT" ;;
+            forgejo-gpt2)              MENTION="@GPT2" ;;
+            *)                         MENTION="@Claude" ;;
+          esac
+
+          BOT_TOKEN="${CI_not_TOKEN:-$CI_NOTIFIER_TOKEN}"
+          CHAT_ID="${CI_not_CHAT_ID:-$TELEGRAM_CHAT_ID}"
+          MSG="${MENTION} CI Started - PR #${PR_NUMBER} (${BRANCH}) ${PR_URL}"
+
+          if [[ -n "$BOT_TOKEN" && -n "$CHAT_ID" ]]; then
+            curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+              -d chat_id="${CHAT_ID}" \
+              -d text="${MSG}" || true
+          else
+            echo "Notifier not configured (missing CI_not/legacy token or chat id); skipping Telegram alert"
+          fi
+
   lint:
     name: ci / lint
     runs-on: ubuntu-latest
