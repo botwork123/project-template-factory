@@ -48,6 +48,8 @@ def test_python_generation_smoke(tmp_path: Path) -> None:
     project = _generate(tmp_path, "smoke_py", "python")
     required = [
         "scripts/wt_bootstrap.sh",
+        "scripts/wt_env.sh",
+        "scripts/wt_doctor.sh",
         "scripts/wt_run.sh",
         "scripts/detect_import_cycles.py",
         "scripts/import_cycle_baseline.txt",
@@ -115,4 +117,4 @@ def test_generated_python_executable_smoke(tmp_path: Path) -> None:
     bootstrap = _run(["./scripts/wt_bootstrap.sh"], cwd=project, env=env)
     _assert_success(bootstrap, "wt_bootstrap")
     _run_python_checks(project, env)
-    assert "[wt_bootstrap] Using uv" in bootstrap.stdout
+    assert "[wt_env] Using uv" in bootstrap.stdout
