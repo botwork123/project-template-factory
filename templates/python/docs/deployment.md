@@ -35,3 +35,12 @@ IMAGE_TAG=dev ./scripts/prefect/deploy.sh dev app
 ```
 
 Set `IMAGE_NAME`, `PREFECT_WORK_POOL`, and `PREFECT_WORK_QUEUE` as needed.
+
+## CI start notifier (optional)
+
+For PR-start Telegram notifications in generated repos, configure either:
+
+- preferred Forgejo variables: `CI_not_TOKEN`, `CI_not_CHAT_ID`
+- or legacy fallback secrets: `CI_NOTIFIER_TOKEN`, `TELEGRAM_CHAT_ID`
+
+The template CI workflow uses CI_not first and falls back to legacy names for compatibility.
