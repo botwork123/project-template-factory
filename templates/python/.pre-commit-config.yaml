@@ -1,47 +1,59 @@
 repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
-    hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
-      - id: check-yaml
-      - id: check-merge-conflict
-
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.9
-    hooks:
-      - id: ruff
-        args: [--fix]
-      - id: ruff-format
-
   - repo: local
     hooks:
+      - id: check-yaml
+        name: check-yaml
+        entry: ./scripts/wt_run.sh python scripts/hooks/check_yaml.py
+        language: system
+        files: \.(yaml|yml)$
+      - id: check-merge-conflict
+        name: check-merge-conflict
+        entry: ./scripts/wt_run.sh python scripts/hooks/check_merge_conflict.py
+        language: system
+      - id: trailing-whitespace
+        name: trailing-whitespace
+        entry: ./scripts/wt_run.sh python scripts/hooks/trailing_whitespace.py
+        language: system
+      - id: end-of-file-fixer
+        name: end-of-file-fixer
+        entry: ./scripts/wt_run.sh python scripts/hooks/end_of_file_fixer.py
+        language: system
+      - id: ruff
+        name: ruff
+        entry: ./scripts/wt_run.sh ruff check --fix
+        language: system
+        types_or: [python, pyi]
+      - id: ruff-format
+        name: ruff-format
+        entry: ./scripts/wt_run.sh ruff format
+        language: system
+        types_or: [python, pyi]
       - id: typing-imports
         name: typing-imports
-        entry: python3 scripts/check_typing_imports.py
+        entry: ./scripts/wt_run.sh python scripts/check_typing_imports.py
         language: system
       - id: semgrep-import-policy
         name: semgrep-import-policy
-        entry: semgrep --error --config .semgrep/rules/import-policy.yml
+        entry: ./scripts/wt_run.sh semgrep --error --config .semgrep/rules/import-policy.yml
         language: system
         types: [python]
       - id: semgrep-guardrails
         name: semgrep-guardrails
-        entry: semgrep --error --config .semgrep/rules/guardrails.yml
+        entry: ./scripts/wt_run.sh semgrep --error --config .semgrep/rules/guardrails.yml
         language: system
         types: [python]
       - id: semgrep-python-ethos
         name: semgrep-python-ethos
-        entry: semgrep --error --config .semgrep/rules/python-ethos.yml
+        entry: ./scripts/wt_run.sh semgrep --error --config .semgrep/rules/python-ethos.yml
         language: system
         types: [python]
       - id: mypy
         name: mypy
-        entry: mypy src/__PROJECT_NAME__
+        entry: ./scripts/wt_run.sh mypy src/__PROJECT_NAME__
         language: system
         pass_filenames: false
       - id: pytest
         name: pytest
-        entry: pytest --cov=__PROJECT_NAME__ --cov-fail-under=90
+        entry: ./scripts/wt_run.sh pytest --cov=src/__PROJECT_NAME__ --cov-fail-under=90
         language: system
         pass_filenames: false
