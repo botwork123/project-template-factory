@@ -33,7 +33,7 @@ testpaths = ["tests"]
 addopts = "-q --tb=short"
 
 [tool.coverage.run]
-source = ["src/__PROJECT_NAME__"]
+source = ["__PROJECT_NAME__"]
 branch = true
 
 [tool.coverage.report]
