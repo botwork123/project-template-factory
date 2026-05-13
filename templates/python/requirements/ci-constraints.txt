@@ -9,3 +9,7 @@ ruff==0.14.0
 mypy==1.15.0
 pytest==8.3.5
 pytest-cov==6.0.0
+
+# typetrace source/ref policy (used by CI clone/install steps)
+# Repository: http://100.67.27.35:3000/botwork123/typetrace.git
+# Pinned ref: 7b0670648b174b1a3b325bfb0d7f0da3e2a07bbe
