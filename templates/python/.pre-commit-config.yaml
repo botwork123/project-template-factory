@@ -1,3 +1,5 @@
+exclude: ^(\.venv/|__pycache__/|.*\.pyc$)
+
 repos:
   - repo: local
     hooks:
@@ -54,6 +56,6 @@ repos:
         pass_filenames: false
       - id: pytest
         name: pytest
-        entry: ./scripts/wt_run.sh pytest --cov=src/__PROJECT_NAME__ --cov-fail-under=90
+        entry: ./scripts/wt_run.sh pytest --cov=__PROJECT_NAME__ --cov-fail-under=90
         language: system
         pass_filenames: false
