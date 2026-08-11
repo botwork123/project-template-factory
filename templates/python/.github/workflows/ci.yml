@@ -194,7 +194,7 @@ jobs:
 
   dockerfile_policy:
     name: ci / dockerfile_policy
-    uses: botwork123/release-platform/.github/workflows/dockerfile-ci.yml@master
+    uses: botwork123/release-platform/.github/workflows/dockerfile-ci.yml@v1
     with:
       dockerfiles: |
         Dockerfile
