@@ -4,15 +4,15 @@ import pytest
 
 
 def _runtime_banner():
-    pytest.importorskip("__PROJECT_NAME__")
-    from __PROJECT_NAME__.main import runtime_banner
+    pytest.importorskip("__IMPORT_NAME__")
+    from __IMPORT_NAME__.main import runtime_banner
 
     return runtime_banner
 
 
 def _main_func():
-    pytest.importorskip("__PROJECT_NAME__")
-    from __PROJECT_NAME__.main import main
+    pytest.importorskip("__IMPORT_NAME__")
+    from __IMPORT_NAME__.main import main
 
     return main
 
@@ -33,4 +33,4 @@ def test_main_prints_banner(monkeypatch, capsys) -> None:
     exit_code = _main_func()()
     captured = capsys.readouterr()
     assert exit_code == 0
-    assert "starting __PROJECT_NAME__" in captured.out
+    assert "starting __IMPORT_NAME__" in captured.out

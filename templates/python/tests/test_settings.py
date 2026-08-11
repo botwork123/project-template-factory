@@ -6,8 +6,8 @@ import pytest
 
 
 def _settings_symbols():
-    pytest.importorskip("__PROJECT_NAME__")
-    from __PROJECT_NAME__.settings import AppSettings, generate_env_example, validate_startup
+    pytest.importorskip("__IMPORT_NAME__")
+    from __IMPORT_NAME__.settings import AppSettings, generate_env_example, validate_startup
 
     return AppSettings, generate_env_example, validate_startup
 

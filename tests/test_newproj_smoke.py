@@ -56,6 +56,7 @@ def test_python_generation_smoke(tmp_path: Path) -> None:
         "scripts/generate_env_example.py",
         "scripts/prefect/deploy.sh",
         ".github/workflows/ci.yml",
+        ".forgejo/workflows/ci.yml",
         "requirements/ci-constraints.txt",
         "Dockerfile",
         ".dockerignore",
@@ -66,6 +67,12 @@ def test_python_generation_smoke(tmp_path: Path) -> None:
     ]
     for rel in required:
         assert (project / rel).exists(), f"missing expected file: {rel}"
+
+
+def test_python_generation_supports_hyphenated_distribution_name(tmp_path: Path) -> None:
+    project = _generate(tmp_path, "promotion-service", "python")
+    assert (project / "src/promotion_service/__init__.py").exists()
+    assert 'name = "promotion-service"' in (project / "pyproject.toml").read_text(encoding="utf-8")
 
 
 def test_python_env_example_generation_is_deterministic(tmp_path: Path) -> None:
