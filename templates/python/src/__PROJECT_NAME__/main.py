@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from __PROJECT_NAME__.settings import load_settings, validate_startup
+from __IMPORT_NAME__.settings import load_settings, validate_startup
 
 
 def runtime_banner() -> str:
     settings = load_settings()
     validate_startup(settings)
     return (
-        f"starting __PROJECT_NAME__ env={settings.app_env} "
+        f"starting __IMPORT_NAME__ env={settings.app_env} "
         f"bind={settings.app_host}:{settings.app_port}"
     )
 

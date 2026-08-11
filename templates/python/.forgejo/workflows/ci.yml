@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  lint:
+    name: ci / lint
+    runs-on: forgejo-default
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pixi
+        run: |
+          curl -fsSL https://pixi.sh/install.sh | bash
+          echo "$HOME/.pixi/bin" >> "$GITHUB_PATH"
+      - name: Install environment
+        run: |
+          if [ -f pixi.lock ]; then pixi install --locked; else pixi install; fi
+      - run: pixi run lint
+      - run: pixi run fmt-check
+
+  test:
+    name: ci / test
+    runs-on: forgejo-default
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pixi
+        run: |
+          curl -fsSL https://pixi.sh/install.sh | bash
+          echo "$HOME/.pixi/bin" >> "$GITHUB_PATH"
+      - name: Install environment
+        run: |
+          if [ -f pixi.lock ]; then pixi install --locked; else pixi install; fi
+      - run: mkdir -p artifacts
+      - run: pixi run test
+      - uses: actions/upload-artifact@v3.1.3
+        if: always()
+        with:
+          name: test-and-coverage-report
+          if-no-files-found: ignore
+          path: artifacts/coverage.xml
+
+  typing:
+    name: ci / mypy
+    runs-on: forgejo-default
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pixi
+        run: |
+          curl -fsSL https://pixi.sh/install.sh | bash
+          echo "$HOME/.pixi/bin" >> "$GITHUB_PATH"
+      - name: Install environment
+        run: |
+          if [ -f pixi.lock ]; then pixi install --locked; else pixi install; fi
+      - run: pixi run mypy
+
+  cycles:
+    name: ci / import-cycles
+    runs-on: forgejo-default
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pixi
+        run: |
+          curl -fsSL https://pixi.sh/install.sh | bash
+          echo "$HOME/.pixi/bin" >> "$GITHUB_PATH"
+      - name: Install environment
+        run: |
+          if [ -f pixi.lock ]; then pixi install --locked; else pixi install; fi
+      - run: pixi run cycles
+
+  protection_gate:
+    name: ci / protection_gate
+    if: always()
+    needs: [lint, test, typing, cycles]
+    runs-on: forgejo-default
+    steps:
+      - name: Enforce CI outcomes
+        env:
+          LINT: ${{ needs.lint.result }}
+          TEST: ${{ needs.test.result }}
+          TYPING: ${{ needs.typing.result }}
+          CYCLES: ${{ needs.cycles.result }}
+        run: |
+          echo "lint=$LINT test=$TEST typing=$TYPING cycles=$CYCLES"
+          [[ "$LINT" == "success" && "$TEST" == "success" && "$TYPING" == "success" && "$CYCLES" == "success" ]]

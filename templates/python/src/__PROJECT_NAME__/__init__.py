@@ -1,1 +1,1 @@
-"""__PROJECT_NAME__ package."""
+"""__IMPORT_NAME__ package."""

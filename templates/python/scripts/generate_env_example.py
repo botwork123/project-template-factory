@@ -10,7 +10,7 @@ SRC_ROOT = REPO_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from __PROJECT_NAME__.settings import generate_env_example  # noqa: E402
+from __IMPORT_NAME__.settings import generate_env_example  # noqa: E402
 
 
 def main() -> int:

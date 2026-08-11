@@ -1,4 +1,4 @@
-from __PROJECT_NAME__.main import main
+from __IMPORT_NAME__.main import main
 
 
 if __name__ == "__main__":  # pragma: no cover
