@@ -37,6 +37,10 @@ def test_python_template_ci_lanes_and_scripts(tmp_path: Path) -> None:
     assert (project / "scripts/import_cycle_baseline.txt").exists()
     assert (project / "scripts/generate_env_example.py").exists()
     assert (project / "scripts/prefect/deploy.sh").exists()
+    assert (project / "scripts/ci/wait_for_http.sh").exists()
+    integration_docs = (project / "docs/integration-ci.md").read_text(encoding="utf-8")
+    assert "forgejo-host" in integration_docs
+    assert "workflow_dispatch" in integration_docs
 
     run_script = (project / "scripts/wt_run.sh").read_text(encoding="utf-8")
     assert "find_spec(\"demo_pkg\")" in run_script
