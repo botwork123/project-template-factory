@@ -53,7 +53,7 @@ jobs:
           python-version: "3.10"
       - run: curl -LsSf https://astral.sh/uv/install.sh | sh
       - run: echo "$HOME/.local/bin" >> $GITHUB_PATH
-      - run: ./scripts/wt_bootstrap.sh
+      - run: ./scripts/wt_env.sh
       - name: Run linters (all files)
         run: |
           set -euo pipefail
@@ -72,7 +72,7 @@ jobs:
           python-version: "3.10"
       - run: curl -LsSf https://astral.sh/uv/install.sh | sh
       - run: echo "$HOME/.local/bin" >> $GITHUB_PATH
-      - run: ./scripts/wt_bootstrap.sh
+      - run: ./scripts/wt_env.sh
       - name: Run import checks (all files)
         run: |
           set -euo pipefail
@@ -92,7 +92,7 @@ jobs:
           python-version: "3.10"
       - run: curl -LsSf https://astral.sh/uv/install.sh | sh
       - run: echo "$HOME/.local/bin" >> $GITHUB_PATH
-      - run: ./scripts/wt_bootstrap.sh
+      - run: ./scripts/wt_env.sh
       - name: Run external packs (blocking on findings)
         run: |
           mkdir -p artifacts
@@ -124,7 +124,7 @@ jobs:
           python-version: "3.10"
       - run: curl -LsSf https://astral.sh/uv/install.sh | sh
       - run: echo "$HOME/.local/bin" >> $GITHUB_PATH
-      - run: ./scripts/wt_bootstrap.sh
+      - run: ./scripts/wt_env.sh
       - name: Run mypy
         run: |
           set -o pipefail
@@ -145,7 +145,7 @@ jobs:
           python-version: "3.10"
       - run: curl -LsSf https://astral.sh/uv/install.sh | sh
       - run: echo "$HOME/.local/bin" >> $GITHUB_PATH
-      - run: ./scripts/wt_bootstrap.sh
+      - run: ./scripts/wt_env.sh
       - name: Assert generated .env.example has no drift
         run: |
           ./scripts/wt_run.sh python scripts/generate_env_example.py

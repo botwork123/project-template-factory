@@ -17,6 +17,25 @@ dev = [
   "pre-commit>=3.7.0",
 ]
 
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-arm64"]
+
+[tool.pixi.dependencies]
+python = ">=3.10"
+pytest = "*"
+pytest-cov = "*"
+ruff = "*"
+mypy = "*"
+pre-commit = "*"
+
+[tool.pixi.tasks]
+lint = "ruff check ."
+fmt-check = "ruff format --check ."
+test = "pytest --cov=src --cov-report=term-missing --cov-report=xml:artifacts/coverage.xml --cov-fail-under=90"
+mypy = "mypy src/__PROJECT_NAME__"
+cycles = "python scripts/detect_import_cycles.py --fail-on new"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
@@ -33,7 +52,7 @@ testpaths = ["tests"]
 addopts = "-q --tb=short"
 
 [tool.coverage.run]
-source = ["__PROJECT_NAME__"]
+source = ["src"]
 branch = true
 
 [tool.coverage.report]

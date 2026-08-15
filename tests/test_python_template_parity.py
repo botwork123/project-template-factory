@@ -43,7 +43,9 @@ def test_python_template_ci_lanes_and_scripts(tmp_path: Path) -> None:
     assert "workflow_dispatch" in integration_docs
 
     run_script = (project / "scripts/wt_run.sh").read_text(encoding="utf-8")
-    assert "find_spec(\"demo_pkg\")" in run_script
+    doctor_script = (project / "scripts/wt_doctor.sh").read_text(encoding="utf-8")
+    assert "wt_doctor.sh" in run_script
+    assert "find_spec(\"demo_pkg\")" in doctor_script
 
     dockerfile = (project / "Dockerfile").read_text(encoding="utf-8")
     prefect_yaml = (project / "prefect.yaml").read_text(encoding="utf-8")
