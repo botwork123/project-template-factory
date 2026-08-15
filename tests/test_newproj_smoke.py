@@ -54,6 +54,7 @@ def test_python_generation_smoke(tmp_path: Path) -> None:
         "scripts/generate_env_example.py",
         "scripts/prefect/deploy.sh",
         ".github/workflows/ci.yml",
+        ".forgejo/workflows/ci.yml",
         "requirements/ci-constraints.txt",
         "Dockerfile",
         ".dockerignore",
@@ -64,6 +65,15 @@ def test_python_generation_smoke(tmp_path: Path) -> None:
     ]
     for rel in required:
         assert (project / rel).exists(), f"missing expected file: {rel}"
+
+
+def test_python_generation_supports_hyphenated_distribution_name(tmp_path: Path) -> None:
+    project = _generate(tmp_path, "promotion-service", "python")
+    assert (project / "src/promotion_service/__init__.py").exists()
+    assert "from promotion_service.settings import" in (
+        project / "scripts/generate_env_example.py"
+    ).read_text(encoding="utf-8")
+    assert 'name = "promotion-service"' in (project / "pyproject.toml").read_text(encoding="utf-8")
 
 
 def test_python_env_example_generation_is_deterministic(tmp_path: Path) -> None:
@@ -80,7 +90,25 @@ def test_typescript_generation_smoke(tmp_path: Path) -> None:
     scripts = json.loads((project / "package.json").read_text(encoding="utf-8")).get("scripts", {})
     assert scripts.get("build") == "tsc --noEmit"
     assert scripts.get("test") == "vitest run"
-    assert (project / ".github/workflows/ci.yml").exists()
+    assert (project / "package-lock.json").exists()
+    workflow = (project / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    assert "npm ci" in workflow
+    assert "npm run -s build" in workflow
+    assert "npm test" in workflow
+    assert (project / ".github/workflows/release.yml").exists()
+
+
+def test_generated_typescript_project_passes_ci_commands(tmp_path: Path) -> None:
+    assert shutil.which("npm"), "npm is required for this smoke test"
+    project = _generate(tmp_path, "smoke_ts_ci", "typescript")
+    env = dict(os.environ)
+    env["npm_config_cache"] = str(tmp_path / ".npm-cache")
+    for command, marker in [
+        (["npm", "ci", "--ignore-scripts", "--no-audit", "--no-fund"], "npm ci"),
+        (["npm", "run", "-s", "build"], "npm build"),
+        (["npm", "test"], "npm test"),
+    ]:
+        _assert_success(_run(command, cwd=project, env=env), marker)
 
 
 def test_rust_generation_smoke(tmp_path: Path) -> None:
@@ -88,6 +116,7 @@ def test_rust_generation_smoke(tmp_path: Path) -> None:
     cargo_toml = (project / "Cargo.toml").read_text(encoding="utf-8")
     assert 'name = "smoke_rs"' in cargo_toml
     assert (project / ".github/workflows/ci.yml").exists()
+    assert (project / ".github/workflows/release.yml").exists()
 
 
 def _run_python_checks(project: Path, env: dict[str, str]) -> None:

@@ -9,6 +9,7 @@ fi
 NAME="$1"
 STACK="$2"
 DEST_ROOT="${3:-$PWD}"
+IMPORT_NAME="${NAME//-/_}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEMPLATE_DIR="$SCRIPT_DIR/templates/$STACK"
 DEST="$DEST_ROOT/$NAME"
@@ -27,10 +28,11 @@ cp -R "$TEMPLATE_DIR" "$DEST"
 
 find "$DEST" -type f -print0 | while IFS= read -r -d '' f; do
   sed -i "s/__PROJECT_NAME__/$NAME/g" "$f"
+  sed -i "s/__IMPORT_NAME__/$IMPORT_NAME/g" "$f"
 done
 
 if [ -d "$DEST/src/__PROJECT_NAME__" ]; then
-  mv "$DEST/src/__PROJECT_NAME__" "$DEST/src/$NAME"
+  mv "$DEST/src/__PROJECT_NAME__" "$DEST/src/$IMPORT_NAME"
 fi
 
 if [ ! -e "$DEST/AGENTS.md" ]; then
@@ -42,91 +44,6 @@ Project-level instructions for coding agents.
 - Follow `CODING_STANDARDS.md` when present.
 - Prefer small, test-backed changes.
 - Keep API changes explicit and documented.
-EOF
-fi
-
-if [ "$STACK" = "typescript" ]; then
-  mkdir -p "$DEST/.github/workflows"
-  cat > "$DEST/.github/workflows/ci.yml" <<'EOF'
-name: CI
-
-on:
-  push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
-
-jobs:
-  quality:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - run: npm ci
-      - run: npm run -s build
-      - run: npm test
-EOF
-
-  cat > "$DEST/.github/workflows/release.yml" <<'EOF'
-name: Release
-
-on:
-  push:
-    tags:
-      - "v*"
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - run: npm ci
-      - run: npm pack
-EOF
-fi
-
-if [ "$STACK" = "rust" ]; then
-  mkdir -p "$DEST/.github/workflows"
-  cat > "$DEST/.github/workflows/ci.yml" <<'EOF'
-name: CI
-
-on:
-  push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
-
-jobs:
-  quality:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - run: cargo fmt -- --check
-      - run: cargo clippy -- -D warnings
-      - run: cargo test --all
-EOF
-
-  cat > "$DEST/.github/workflows/release.yml" <<'EOF'
-name: Release
-
-on:
-  push:
-    tags:
-      - "v*"
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - run: cargo build --release
 EOF
 fi
 
@@ -188,6 +105,13 @@ EOF
     python3 scripts/generate_env_example.py >/dev/null
   else
     echo "⚠️  python3 not found; skipping initial .env.example generation"
+  fi
+
+  if command -v pixi >/dev/null 2>&1; then
+    echo "Generating pixi.lock..."
+    pixi install >/dev/null
+  else
+    echo "⚠️  pixi not found; run 'pixi install' to generate pixi.lock"
   fi
 fi
 
