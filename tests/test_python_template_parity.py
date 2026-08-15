@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+import os
 from pathlib import Path
 
 
@@ -9,10 +10,20 @@ def test_python_template_ci_lanes_and_scripts(tmp_path: Path) -> None:
     dest_root = tmp_path / "out"
     dest_root.mkdir()
 
+    env = dict(os.environ)
+    env.update(
+        {
+            "GIT_AUTHOR_NAME": "template-ci",
+            "GIT_AUTHOR_EMAIL": "template-ci@example.com",
+            "GIT_COMMITTER_NAME": "template-ci",
+            "GIT_COMMITTER_EMAIL": "template-ci@example.com",
+        }
+    )
     subprocess.run(
         [str(repo / "newproj"), "demo_pkg", "python", str(dest_root)],
         check=True,
         cwd=repo,
+        env=env,
     )
 
     project = dest_root / "demo_pkg"

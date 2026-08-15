@@ -1,13 +1,12 @@
-name: CI
+name: Release
 
 on:
   push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
+    tags:
+      - "v*"
 
 jobs:
-  quality:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,6 +15,4 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
-      - run: npm run -s build
-      - run: npm run -s lint
-      - run: npm test
+      - run: npm pack

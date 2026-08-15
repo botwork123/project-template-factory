@@ -47,6 +47,7 @@ def _assert_success(result: subprocess.CompletedProcess[str], marker: str) -> No
 def test_python_generation_smoke(tmp_path: Path) -> None:
     project = _generate(tmp_path, "smoke_py", "python")
     required = [
+        "scripts/bootstrap.sh",
         "scripts/wt_bootstrap.sh",
         "scripts/wt_env.sh",
         "scripts/wt_doctor.sh",
@@ -69,9 +70,35 @@ def test_python_generation_smoke(tmp_path: Path) -> None:
         assert (project / rel).exists(), f"missing expected file: {rel}"
 
 
+def test_generator_rejects_unsafe_project_names(tmp_path: Path) -> None:
+    result = _run(["./newproj", "bad&name", "typescript", str(tmp_path)], cwd=_repo_root())
+    assert result.returncode != 0
+    assert "invalid project name" in f"{result.stdout}\n{result.stderr}".lower()
+    assert not (tmp_path / "bad&name").exists()
+
+
+def test_generator_fails_if_bootstrap_commit_has_no_git_identity(tmp_path: Path) -> None:
+    env = dict(os.environ)
+    env.update(
+        {
+            "HOME": str(tmp_path / "home"),
+            "XDG_CONFIG_HOME": str(tmp_path / "config"),
+            "GIT_CONFIG_NOSYSTEM": "1",
+        }
+    )
+    for key in ["GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"]:
+        env.pop(key, None)
+    result = _run(["./newproj", "no-identity", "typescript", str(tmp_path)], cwd=_repo_root(), env=env)
+    assert result.returncode != 0
+    assert "configure git user.name" in f"{result.stdout}\n{result.stderr}".lower()
+
+
 def test_python_generation_supports_hyphenated_distribution_name(tmp_path: Path) -> None:
     project = _generate(tmp_path, "promotion-service", "python")
     assert (project / "src/promotion_service/__init__.py").exists()
+    assert "from promotion_service.settings import" in (
+        project / "scripts/generate_env_example.py"
+    ).read_text(encoding="utf-8")
     assert 'name = "promotion-service"' in (project / "pyproject.toml").read_text(encoding="utf-8")
 
 
@@ -89,7 +116,25 @@ def test_typescript_generation_smoke(tmp_path: Path) -> None:
     scripts = json.loads((project / "package.json").read_text(encoding="utf-8")).get("scripts", {})
     assert scripts.get("build") == "tsc --noEmit"
     assert scripts.get("test") == "vitest run"
-    assert (project / ".github/workflows/ci.yml").exists()
+    assert (project / "package-lock.json").exists()
+    workflow = (project / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    assert "npm ci" in workflow
+    assert "npm run -s build" in workflow
+    assert "npm test" in workflow
+    assert (project / ".github/workflows/release.yml").exists()
+
+
+def test_generated_typescript_project_passes_ci_commands(tmp_path: Path) -> None:
+    assert shutil.which("npm"), "npm is required for this smoke test"
+    project = _generate(tmp_path, "smoke_ts_ci", "typescript")
+    env = dict(os.environ)
+    env["npm_config_cache"] = str(tmp_path / ".npm-cache")
+    for command, marker in [
+        (["npm", "ci", "--ignore-scripts", "--no-audit", "--no-fund"], "npm ci"),
+        (["npm", "run", "-s", "build"], "npm build"),
+        (["npm", "test"], "npm test"),
+    ]:
+        _assert_success(_run(command, cwd=project, env=env), marker)
 
 
 def test_rust_generation_smoke(tmp_path: Path) -> None:
@@ -97,6 +142,14 @@ def test_rust_generation_smoke(tmp_path: Path) -> None:
     cargo_toml = (project / "Cargo.toml").read_text(encoding="utf-8")
     assert 'name = "smoke_rs"' in cargo_toml
     assert (project / ".github/workflows/ci.yml").exists()
+    assert (project / ".github/workflows/release.yml").exists()
+
+
+def test_factory_ci_has_pinned_cross_language_smokes() -> None:
+    workflow = (_repo_root() / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    assert 'node-version: "22"' in workflow
+    assert "cargo test --all" in workflow
+    assert "cargo build --release" in workflow
 
 
 def _run_python_checks(project: Path, env: dict[str, str]) -> None:

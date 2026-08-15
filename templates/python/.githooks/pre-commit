@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if ! command -v pre-commit >/dev/null 2>&1; then
+  echo "⚠️  pre-commit not found; install with: pip install pre-commit"
+  exit 1
+fi
+
+pre-commit run --hook-stage pre-commit --all-files
