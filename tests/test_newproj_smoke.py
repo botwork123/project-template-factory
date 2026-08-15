@@ -47,6 +47,7 @@ def _assert_success(result: subprocess.CompletedProcess[str], marker: str) -> No
 def test_python_generation_smoke(tmp_path: Path) -> None:
     project = _generate(tmp_path, "smoke_py", "python")
     required = [
+        "scripts/bootstrap.sh",
         "scripts/wt_bootstrap.sh",
         "scripts/wt_env.sh",
         "scripts/wt_doctor.sh",
@@ -67,6 +68,29 @@ def test_python_generation_smoke(tmp_path: Path) -> None:
     ]
     for rel in required:
         assert (project / rel).exists(), f"missing expected file: {rel}"
+
+
+def test_generator_rejects_unsafe_project_names(tmp_path: Path) -> None:
+    result = _run(["./newproj", "bad&name", "typescript", str(tmp_path)], cwd=_repo_root())
+    assert result.returncode != 0
+    assert "invalid project name" in f"{result.stdout}\n{result.stderr}".lower()
+    assert not (tmp_path / "bad&name").exists()
+
+
+def test_generator_fails_if_bootstrap_commit_has_no_git_identity(tmp_path: Path) -> None:
+    env = dict(os.environ)
+    env.update(
+        {
+            "HOME": str(tmp_path / "home"),
+            "XDG_CONFIG_HOME": str(tmp_path / "config"),
+            "GIT_CONFIG_NOSYSTEM": "1",
+        }
+    )
+    for key in ["GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"]:
+        env.pop(key, None)
+    result = _run(["./newproj", "no-identity", "typescript", str(tmp_path)], cwd=_repo_root(), env=env)
+    assert result.returncode != 0
+    assert "configure git user.name" in f"{result.stdout}\n{result.stderr}".lower()
 
 
 def test_python_generation_supports_hyphenated_distribution_name(tmp_path: Path) -> None:
@@ -119,6 +143,13 @@ def test_rust_generation_smoke(tmp_path: Path) -> None:
     assert 'name = "smoke_rs"' in cargo_toml
     assert (project / ".github/workflows/ci.yml").exists()
     assert (project / ".github/workflows/release.yml").exists()
+
+
+def test_factory_ci_has_pinned_cross_language_smokes() -> None:
+    workflow = (_repo_root() / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    assert 'node-version: "22"' in workflow
+    assert "cargo test --all" in workflow
+    assert "cargo build --release" in workflow
 
 
 def _run_python_checks(project: Path, env: dict[str, str]) -> None:
